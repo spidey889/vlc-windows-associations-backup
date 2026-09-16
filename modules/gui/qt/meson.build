@@ -548,6 +548,9 @@ if host_system == 'windows'
         'style/windowsthemeprovider.cpp',
         'util/csdmenu_win32.c',
         'util/csdmenu_win32.h',
+        'util/userchoice_latest_hash/HashCodec.cpp',
+        'util/userchoice_latest_hash/HashCommon.h',
+        'util/userchoice_latest_hash/HashTables.cpp',
         'maininterface/compositor_dcomp.cpp',
         'maininterface/compositor_dcomp_acrylicsurface.cpp',
     )
@@ -1089,6 +1092,8 @@ if qt6_dep.found()
     # Qt plugins
     if host_system == 'windows'
         qt_extra_deps += [
+            cc.find_library('advapi32'),
+            cc.find_library('crypt32'),
             cc.find_library('dwmapi'),
             cc.find_library('comctl32'),
         ]
@@ -1286,8 +1291,27 @@ if qt6_dep.found()
         'plugin_dir' : 'gui',
     }
 
+    if host_system == 'windows'
+
+        vlc_tests += {
+            'name': 'test_userchoice_latest_hash',
+            'sources': files(
+                'tests/test_userchoice_latest_hash.cpp',
+                'util/userchoice_latest_hash/HashCodec.cpp',
+                'util/userchoice_latest_hash/HashTables.cpp'),
+            'suite': ['qt'],
+            'dependencies': [
+                cc.find_library('advapi32'),
+                cc.find_library('crypt32'),
+            ],
+        }
+
+
+    endif
+
     qtest_qt6_dep = dependency('qt6', version: '=' + qt6_dep.version(), modules: ['Test'], required: false)
     if qtest_qt6_dep.found()
+
         vlc_tests += {
             'name': 'base_model_test',
             'sources': files(

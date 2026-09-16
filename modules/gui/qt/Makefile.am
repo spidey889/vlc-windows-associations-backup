@@ -87,7 +87,8 @@ endif
 
 if HAVE_WIN32
 libqt_plugin_la_CXXFLAGS += $(LIBCOMCXXFLAGS)
-libqt_plugin_la_LIBADD += $(LIBCOM) -lcomctl32 -luuid -ldwmapi
+libqt_plugin_la_LIBADD += $(LIBCOM) -lcomctl32 -luuid -ldwmapi \
+	-ladvapi32 -lcrypt32
 endif
 if UPDATE_CHECK
 libqt_plugin_la_CPPFLAGS += -DUPDATE_CHECK
@@ -578,7 +579,10 @@ libqt_plugin_la_SOURCES += \
 	maininterface/win32windoweffects_module.cpp \
 	maininterface/win32windoweffects_module.hpp \
 	util/csdmenu_win32.c \
-	util/csdmenu_win32.h
+	util/csdmenu_win32.h \
+	util/userchoice_latest_hash/HashCodec.cpp \
+	util/userchoice_latest_hash/HashCommon.h \
+	util/userchoice_latest_hash/HashTables.cpp
 
 nodist_libqt_plugin_la_SOURCES += maininterface/mainctx_win32.moc.cpp \
 	maininterface/compositor_win7.moc.cpp
@@ -1744,6 +1748,28 @@ endif
 check_PROGRAMS =
 TESTS =
 
+if HAVE_WIN32
+
+test_userchoice_latest_hash_SOURCES = \
+	tests/test_userchoice_latest_hash.cpp \
+	util/userchoice_latest_hash/HashCodec.cpp \
+	util/userchoice_latest_hash/HashCommon.h \
+	util/userchoice_latest_hash/HashTables.cpp
+test_userchoice_latest_hash_CXXFLAGS = $(AM_CXXFLAGS) $(CXXFLAGS_qt)
+test_userchoice_latest_hash_LDADD = -ladvapi32 -lcrypt32
+check_PROGRAMS += test_userchoice_latest_hash
+TESTS += test_userchoice_latest_hash
+
+
+
+endif
+
+EXTRA_DIST += \
+	util/LICENSE \
+	util/userchoice_latest_hash/LICENSE \
+	util/userchoice_latest_hash/README.md \
+	util/userchoice_latest_hash/UserChoiceLatestHashTables.inc
+
 if HAVE_QT_QTEST
 
 LIBVLC = ../../../lib/libvlc.la
@@ -1770,6 +1796,7 @@ base_model_test_LDADD = $(QT_QTEST_COMMON_ldadd)
 base_model_test_LDFLAGS = $(QT_QTEST_COMMON_ldflags)
 check_PROGRAMS += base_model_test
 TESTS += base_model_test
+
 
 
 # test_ml_model
