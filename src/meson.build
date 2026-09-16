@@ -561,3 +561,25 @@ vlc_tests += {
 }
 
 subdir('rust')
+
+# Standalone desktop support; Shell APIs are unavailable to Windows Store apps.
+if have_win_desktop
+    win32_associations_include = include_directories('.')
+    win32_associations_deps = [
+        cc.find_library('advapi32'), cc.find_library('crypt32'),
+        cc.find_library('shell32'), cc.find_library('shlwapi'),
+        cc.find_library('ole32'), cc.find_library('uuid'),
+    ]
+    win32_associations = static_library('vlc_win32_associations',
+        'win32/associations/win32_associations.cpp',
+        'win32/associations/association_batch.cpp',
+        'win32/associations/userchoice_hash.cpp',
+        'win32/associations/userchoice_latest_hash/HashCodec.cpp',
+        'win32/associations/userchoice_latest_hash/HashTables.cpp',
+        dependencies: win32_associations_deps,
+        install: false)
+    win32_associations_dep = declare_dependency(
+        link_with: win32_associations,
+        include_directories: win32_associations_include,
+        dependencies: win32_associations_deps)
+endif

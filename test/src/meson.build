@@ -437,3 +437,23 @@ vlc_tests += {
     'suite' : ['src', 'test_src'],
     'link_with' : [libvlc, libvlccore],
 }
+
+if have_win_desktop
+    association_hash_sources = files(
+        '../../src/win32/associations/userchoice_latest_hash/HashCodec.cpp',
+        '../../src/win32/associations/userchoice_latest_hash/HashTables.cpp')
+    foreach association_test : [
+        ['test_src_win32_userchoice_latest_hash', files('win32/userchoice_latest_hash.cpp') + association_hash_sources],
+        ['test_src_win32_userchoice_hash', files('win32/userchoice_hash.cpp', '../../src/win32/associations/userchoice_hash.cpp') + association_hash_sources],
+        ['test_src_win32_association_registry', files('win32/association_registry.cpp', '../../src/win32/associations/userchoice_hash.cpp') + association_hash_sources],
+        ['test_src_win32_association_batch', files('win32/association_batch.cpp', '../../src/win32/associations/association_batch.cpp')],
+    ]
+        vlc_tests += {
+            'name': association_test[0],
+            'sources': association_test[1],
+            'suite': ['src', 'win32-associations'],
+            'include_directories': win32_associations_include,
+            'dependencies': win32_associations_deps,
+        }
+    endforeach
+endif

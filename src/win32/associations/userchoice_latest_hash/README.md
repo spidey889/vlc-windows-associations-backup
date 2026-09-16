@@ -58,7 +58,7 @@ words, MD5 words and mixer pairs for comparison, and may be partial on failure.
 
 ## What the tests establish
 
-`../../tests/test_userchoice_latest_hash.cpp` checks:
+`../../../../test/src/win32/userchoice_latest_hash.cpp` checks:
 
 - Exact hashes for fixed canonical strings representing all three machine
   classes. These are codec vectors, not a test of the backend's class selection.
@@ -76,7 +76,7 @@ words, MD5 words and mixer pairs for comparison, and may be partial on failure.
   C-locale byte preservation and the existing canonical vector; unavailable locales are
   explicitly reported as skipped, not counted as successful locale runs.
 
-`../../tests/test_userchoice_hash.cpp` checks the shared MD5 helper through a
+`../../../../test/src/win32/userchoice_hash.cpp` checks the shared MD5 helper through a
 fixed legacy-format vector. Format selection and transaction/recovery behavior
 are separately covered by the backend's decision and disposable-registry tests.
 Codec tests do not write associations or establish Shell acceptance.

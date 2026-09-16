@@ -3,10 +3,10 @@
  *****************************************************************************
  * Copyright (c) 2026 Vinit Rajpurohit (spidey889)
  * SPDX-License-Identifier: MIT
- * See ../util/LICENSE for the full license text.
+ * See ../../../src/win32/associations/LICENSE for the full license text.
  *****************************************************************************/
 
-#include "../util/userchoice_latest_hash/HashCommon.h"
+#include "win32/associations/userchoice_latest_hash/HashCommon.h"
 
 #include <clocale>
 #include <iostream>

@@ -197,6 +197,7 @@ libvlccore_win32_rc.rc: libvlccore_win32_rc.rc.in $(top_builddir)/config.status
 ###############################################################################
 
 lib_LTLIBRARIES = libvlccore.la
+noinst_LTLIBRARIES =
 
 AM_CPPFLAGS = $(INCICONV) $(IDN_CFLAGS) \
 	-DMODULE_STRING=\"core\" \
@@ -495,7 +496,7 @@ libvlccore_la_SOURCES += \
 libvlccore_objc_la_SOURCES = \
 	darwin/dirs.m \
 	darwin/netconf.m
-noinst_LTLIBRARIES = libvlccore_objc.la
+noinst_LTLIBRARIES += libvlccore_objc.la
 endif
 
 if HAVE_FREEBSD
@@ -846,3 +847,28 @@ FORCE:
 	@exit 1
 
 .PHONY: FORCE
+
+# Private support library shared by Windows frontends, not part of libvlccore.
+# These Shell APIs are unavailable to Windows Store apps.
+if HAVE_WIN32_DESKTOP
+noinst_LTLIBRARIES += libvlc_win32_associations.la
+libvlc_win32_associations_la_SOURCES = \
+	win32/associations/win32_associations.cpp \
+	win32/associations/win32_associations.hpp \
+	win32/associations/association_batch.cpp \
+	win32/associations/association_batch.hpp \
+	win32/associations/userchoice_hash.cpp \
+	win32/associations/userchoice_hash.hpp \
+	win32/associations/userchoice_latest_hash/HashCodec.cpp \
+	win32/associations/userchoice_latest_hash/HashCommon.h \
+	win32/associations/userchoice_latest_hash/HashTables.cpp
+libvlc_win32_associations_la_CXXFLAGS = $(AM_CXXFLAGS)
+libvlc_win32_associations_la_LIBADD = -ladvapi32 -lcrypt32 -lshell32 -lshlwapi -lole32 -luuid
+endif
+
+EXTRA_DIST += \
+	win32/associations/LICENSE \
+	win32/associations/README.md \
+	win32/associations/userchoice_latest_hash/LICENSE \
+	win32/associations/userchoice_latest_hash/README.md \
+	win32/associations/userchoice_latest_hash/UserChoiceLatestHashTables.inc

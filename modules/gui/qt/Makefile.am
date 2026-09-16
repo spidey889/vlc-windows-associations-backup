@@ -87,8 +87,12 @@ endif
 
 if HAVE_WIN32
 libqt_plugin_la_CXXFLAGS += $(LIBCOMCXXFLAGS)
+if HAVE_WIN32_DESKTOP
+libqt_plugin_la_CPPFLAGS += -I$(top_srcdir)/src
+libqt_plugin_la_LIBADD += $(top_builddir)/src/libvlc_win32_associations.la
+endif
 libqt_plugin_la_LIBADD += $(LIBCOM) -lcomctl32 -luuid -ldwmapi \
-	-ladvapi32 -lcrypt32
+	-ladvapi32 -lcrypt32 -lshell32 -lshlwapi -lole32
 endif
 if UPDATE_CHECK
 libqt_plugin_la_CPPFLAGS += -DUPDATE_CHECK
@@ -579,10 +583,7 @@ libqt_plugin_la_SOURCES += \
 	maininterface/win32windoweffects_module.cpp \
 	maininterface/win32windoweffects_module.hpp \
 	util/csdmenu_win32.c \
-	util/csdmenu_win32.h \
-	util/userchoice_latest_hash/HashCodec.cpp \
-	util/userchoice_latest_hash/HashCommon.h \
-	util/userchoice_latest_hash/HashTables.cpp
+	util/csdmenu_win32.h
 
 nodist_libqt_plugin_la_SOURCES += maininterface/mainctx_win32.moc.cpp \
 	maininterface/compositor_win7.moc.cpp
@@ -1749,26 +1750,13 @@ check_PROGRAMS =
 TESTS =
 
 if HAVE_WIN32
-
-test_userchoice_latest_hash_SOURCES = \
-	tests/test_userchoice_latest_hash.cpp \
-	util/userchoice_latest_hash/HashCodec.cpp \
-	util/userchoice_latest_hash/HashCommon.h \
-	util/userchoice_latest_hash/HashTables.cpp
-test_userchoice_latest_hash_CXXFLAGS = $(AM_CXXFLAGS) $(CXXFLAGS_qt)
-test_userchoice_latest_hash_LDADD = -ladvapi32 -lcrypt32
-check_PROGRAMS += test_userchoice_latest_hash
-TESTS += test_userchoice_latest_hash
-
-
+test_win32_association_decisions_SOURCES = tests/test_win32_association_decisions.cpp
+test_win32_association_decisions_CPPFLAGS = $(AM_CPPFLAGS) -I$(top_srcdir)/src
+test_win32_association_decisions_CXXFLAGS = $(AM_CXXFLAGS) $(CXXFLAGS_qt)
+check_PROGRAMS += test_win32_association_decisions
+TESTS += test_win32_association_decisions
 
 endif
-
-EXTRA_DIST += \
-	util/LICENSE \
-	util/userchoice_latest_hash/LICENSE \
-	util/userchoice_latest_hash/README.md \
-	util/userchoice_latest_hash/UserChoiceLatestHashTables.inc
 
 if HAVE_QT_QTEST
 
@@ -1953,3 +1941,5 @@ EXTRA_DIST += tests/tst_FSM.qml
 TESTS += tests/tst_FSM.qml
 endif
 endif
+
+EXTRA_DIST += tests/win32_association_smoke.cpp tests/win32_association_smoke.md

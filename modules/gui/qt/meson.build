@@ -170,6 +170,11 @@ moc_headers = files(
     'widgets/native/viewblockingrectangle.hpp',
 )
 
+if have_win_desktop
+    qt_include_dir = [qt_include_dir, include_directories('../../../src')]
+    qt_extra_deps += win32_associations_dep
+endif
+
 if host_system == 'windows'
     moc_headers += files(
         'maininterface/mainctx_win32.hpp',
@@ -548,9 +553,6 @@ if host_system == 'windows'
         'style/windowsthemeprovider.cpp',
         'util/csdmenu_win32.c',
         'util/csdmenu_win32.h',
-        'util/userchoice_latest_hash/HashCodec.cpp',
-        'util/userchoice_latest_hash/HashCommon.h',
-        'util/userchoice_latest_hash/HashTables.cpp',
         'maininterface/compositor_dcomp.cpp',
         'maininterface/compositor_dcomp_acrylicsurface.cpp',
     )
@@ -1096,6 +1098,10 @@ if qt6_dep.found()
             cc.find_library('crypt32'),
             cc.find_library('dwmapi'),
             cc.find_library('comctl32'),
+            cc.find_library('ole32'),
+            cc.find_library('uuid'),
+            cc.find_library('shell32'),
+            cc.find_library('shlwapi'),
         ]
     endif
 
@@ -1292,20 +1298,13 @@ if qt6_dep.found()
     }
 
     if host_system == 'windows'
-
         vlc_tests += {
-            'name': 'test_userchoice_latest_hash',
+            'name': 'test_win32_association_decisions',
             'sources': files(
-                'tests/test_userchoice_latest_hash.cpp',
-                'util/userchoice_latest_hash/HashCodec.cpp',
-                'util/userchoice_latest_hash/HashTables.cpp'),
+                'tests/test_win32_association_decisions.cpp'),
+            'include_directories': qt_include_dir,
             'suite': ['qt'],
-            'dependencies': [
-                cc.find_library('advapi32'),
-                cc.find_library('crypt32'),
-            ],
         }
-
 
     endif
 

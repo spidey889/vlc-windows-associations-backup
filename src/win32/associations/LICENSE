@@ -1,5 +1,12 @@
 MIT License
 
+The legacy UserChoice hash implementation in userchoice_hash.cpp is based on
+public UserChoice research and the MIT-licensed tools_setfta implementation:
+
+Research: https://kolbi.cz/blog/2017/10/25/setuserfta-userchoice-hash-defeated-set-file-type-associations-per-user/
+Source: https://github.com/mullerdavid/tools_setfta
+
+Copyright (c) 2020 David Muller
 Copyright (c) 2026 Vinit Rajpurohit (spidey889)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
