@@ -546,6 +546,11 @@ qt_plugin_sources = files(
 
 if host_system == 'windows'
     qt_plugin_sources += files(
+        'dialogs/preferences/win32_association_dialog.cpp',
+        'dialogs/preferences/win32_association_dialog.hpp',
+        'util/win32_association_task.cpp',
+        'util/win32_association_task.hpp',
+        'util/win32_association_types.hpp',
         'maininterface/mainctx_win32.cpp',
         'maininterface/mainctx_win32.hpp',
         'maininterface/compositor_win7.cpp',
@@ -1305,11 +1310,26 @@ if qt6_dep.found()
             'include_directories': qt_include_dir,
             'suite': ['qt'],
         }
-
     endif
 
     qtest_qt6_dep = dependency('qt6', version: '=' + qt6_dep.version(), modules: ['Test'], required: false)
     if qtest_qt6_dep.found()
+        if host_system == 'windows'
+            vlc_tests += {
+                'name': 'test_win32_association_ui',
+                'sources': files(
+                    'tests/test_win32_association_ui.cpp',
+                    'util/win32_association_task.cpp',
+                    '../../../src/win32/associations/association_batch.cpp'),
+                'moc_sources': files('tests/test_win32_association_ui.cpp'),
+                'moc_headers': files('util/asynctask.hpp'),
+                'suite': ['qt'],
+                'include_directories': qt_include_dir,
+                'link_with': [libvlccore],
+                'link_args': qt_link_args,
+                'dependencies': [qt6_dep, qt_extra_deps, qtest_qt6_dep],
+            }
+        endif
 
         vlc_tests += {
             'name': 'base_model_test',

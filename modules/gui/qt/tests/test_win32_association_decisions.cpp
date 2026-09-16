@@ -7,7 +7,9 @@
  *****************************************************************************/
 
 #include "win32/associations/win32_associations.hpp"
+#include "../util/win32_association_types.hpp"
 
+#include <algorithm>
 #include <iostream>
 
 int main()
@@ -49,6 +51,30 @@ int main()
         recoveryWorks &= chooseRecoveryAction((flags & 8) != 0, (flags & 4) != 0,
                                               (flags & 2) != 0, (flags & 1) != 0) ==
                          expectedRecovery[flags];
+    }
+
+    const auto mediaExtensions = vlc::win32::allMediaExtensions();
+    auto sortedExtensions = mediaExtensions;
+    std::sort(sortedExtensions.begin(), sortedExtensions.end());
+    if (mediaExtensions.size() != 115 ||
+        std::adjacent_find(sortedExtensions.begin(), sortedExtensions.end()) != sortedExtensions.end())
+    {
+        std::cerr << "Bulk default extension list changed or contains duplicates\n";
+        return 1;
+    }
+    const std::wstring_view excludedExtensions[] = {
+        L".mid", L".iso", L".bin", L".srt", L".ass", L".vtt",
+        L".jpg", L".png", L".webp", L".zip", L".rar", L".7z",
+        L".exe", L".msi", L".bat",
+    };
+    for (const auto extension : excludedExtensions)
+    {
+        if (std::find(mediaExtensions.begin(), mediaExtensions.end(), extension) !=
+            mediaExtensions.end())
+        {
+            std::cerr << "Non-media extension included in bulk defaults\n";
+            return 1;
+        }
     }
 
     if (!routingWorks || !recoveryWorks)

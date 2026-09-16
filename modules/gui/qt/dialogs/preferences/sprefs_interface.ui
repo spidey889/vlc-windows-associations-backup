@@ -661,7 +661,7 @@ with no client-side decoration.</string>
    <item>
     <widget class="QGroupBox" name="osGroupBox">
      <property name="title">
-      <string>Operating System Integration</string>
+      <string>Default media player</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_4">
       <item row="2" column="0">
@@ -673,7 +673,7 @@ with no client-side decoration.</string>
          </sizepolicy>
         </property>
         <property name="text">
-         <string>File extensions association</string>
+         <string>Default apps</string>
         </property>
        </widget>
       </item>
@@ -705,7 +705,7 @@ with no client-side decoration.</string>
          </size>
         </property>
         <property name="text">
-         <string>Set up associations...</string>
+         <string>Choose defaults...</string>
         </property>
        </widget>
       </item>

@@ -34,6 +34,9 @@
 #include "util/color_scheme_model.hpp"
 #include "util/proxycolumnmodel.hpp"
 #include "medialibrary/mlrecentmediamodel.hpp"
+#ifdef _WIN32
+# include "dialogs/preferences/win32_association_dialog.hpp"
+#endif
 
 #include <vlc_config_cat.h>
 #include <vlc_configuration.h>
@@ -58,24 +61,19 @@
 #include <QGridLayout>
 #include <QWidget>
 #include <QHBoxLayout>
-#include <QDialog>
 #include <QFileDialog>
-#include <QTreeWidget>
-#include <QTreeWidgetItem>
 #include <QRegularExpression>
+#ifdef _WIN32
+# include <QSignalBlocker>
+#endif
 
 #include <cassert>
 #include <math.h>
-#ifdef _WIN32
-#include <wrl/client.h>
-#endif
-
 #define ICON_HEIGHT 48
 #define ICON_WIDTH 48
 
 #ifdef _WIN32
 # include <vlc_charset.h>
-# include <shobjidl.h>
 #endif
 #include <vlc_modules.h>
 
@@ -1373,7 +1371,6 @@ void SPrefsPanel::configML()
 }
 
 #ifdef _WIN32
-#include <QDialogButtonBox>
 #include "util/registry.hpp"
 
 void SPrefsPanel::cleanLang() {
@@ -1396,258 +1393,13 @@ void SPrefsPanel::saveLang() {
     }
 }
 
-bool SPrefsPanel::addType( const char * psz_ext, QTreeWidgetItem* current,
-                           QTreeWidgetItem* parent, QVLCRegistry *qvReg )
-{
-    bool b_temp;
-    const char* psz_VLC = "VLC";
-    current = new QTreeWidgetItem( parent, QStringList( psz_ext ) );
-
-    char* psz_reg = qvReg->ReadRegistry( psz_ext, "", "" );
-    if( psz_reg == NULL )
-        return false;
-    if( strstr( psz_reg, psz_VLC ) )
-    {
-        current->setCheckState( 0, Qt::Checked );
-        b_temp = true;
-    }
-    else
-    {
-        current->setCheckState( 0, Qt::Unchecked );
-        b_temp = false;
-    }
-    free( psz_reg );
-    listAsso.append( current );
-    return b_temp;
-}
-
 void SPrefsPanel::assoDialog()
 {
-    HRESULT hr;
-
-    hr = CoInitializeEx( NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE );
-    if( SUCCEEDED(hr) )
-    {
-        {
-            Microsoft::WRL::ComPtr<IApplicationAssociationRegistrationUI> p_regui;
-
-            hr = CoCreateInstance(__uuidof(ApplicationAssociationRegistrationUI),
-                                NULL, CLSCTX_INPROC_SERVER,
-                                IID_PPV_ARGS(&p_regui));
-            if( SUCCEEDED(hr) )
-                p_regui->LaunchAdvancedAssociationUI(L"VLC" );
-        }
-        CoUninitialize();
-    }
-
-    if( SUCCEEDED(hr) )
-        return;
-
-    QDialog *d = new QDialog( this );
-    d->setWindowTitle( qtr( "File associations" ) );
-    QGridLayout *assoLayout = new QGridLayout( d );
-
-    QTreeWidget *filetypeList = new QTreeWidget;
-    assoLayout->addWidget( filetypeList, 0, 0, 1, 4 );
-    filetypeList->header()->hide();
-
-    QVLCRegistry qvReg( HKEY_CLASSES_ROOT );
-
-    QTreeWidgetItem *audioType = new QTreeWidgetItem( QStringList( qtr( "Audio Files" ) ) );
-    QTreeWidgetItem *videoType = new QTreeWidgetItem( QStringList( qtr( "Video Files" ) ) );
-    QTreeWidgetItem *otherType = new QTreeWidgetItem( QStringList( qtr( "Playlist Files" ) ) );
-
-    filetypeList->addTopLevelItem( audioType );
-    filetypeList->addTopLevelItem( videoType );
-    filetypeList->addTopLevelItem( otherType );
-
-    audioType->setExpanded( true ); audioType->setCheckState( 0, Qt::Unchecked );
-    videoType->setExpanded( true ); videoType->setCheckState( 0, Qt::Unchecked );
-    otherType->setExpanded( true ); otherType->setCheckState( 0, Qt::Unchecked );
-
-    QTreeWidgetItem *currentItem = NULL;
-
-    int i_temp = 0;
-#define aTa( name ) i_temp += addType( name, currentItem, audioType, &qvReg )
-#define aTv( name ) i_temp += addType( name, currentItem, videoType, &qvReg )
-#define aTo( name ) i_temp += addType( name, currentItem, otherType, &qvReg )
-
-    aTa( ".3ga" ); aTa( ".669" ); aTa( ".a52" ); aTa( ".aac" ); aTa( ".ac3" );
-    aTa( ".adt" ); aTa( ".adts" ); aTa( ".aif" ); aTa( ".aifc" ); aTa( ".aiff" );
-    aTa( ".au" ); aTa( ".amr" ); aTa( ".aob" ); aTa( ".ape" ); aTa( ".caf" );
-    aTa( ".cda" ); aTa( ".dts" ); aTa( ".flac" ); aTa( ".it" ); aTa( ".m4a" );
-    aTa( ".m4p" ); aTa( ".mid" ); aTa( ".mka" ); aTa( ".mlp" ); aTa( ".mod" );
-    aTa( ".mp1" ); aTa( ".mp2" ); aTa( ".mp3" ); aTa( ".mpc" ); aTa( ".mpga" );
-    aTa( ".oga" ); aTa( ".oma" ); aTa( ".opus" ); aTa( ".qcp" ); aTa( ".ra" );
-    aTa( ".rmi" ); aTa( ".snd" ); aTa( ".s3m" ); aTa( ".spx" ); aTa( ".tta" );
-    aTa( ".voc" ); aTa( ".vqf" ); aTa( ".w64" ); aTa( ".wav" ); aTa( ".wma" );
-    aTa( ".wv" ); aTa( ".xa" ); aTa( ".xm" );
-    audioType->setCheckState( 0, ( i_temp > 0 ) ?
-                              ( ( i_temp == audioType->childCount() ) ?
-                               Qt::Checked : Qt::PartiallyChecked )
-                            : Qt::Unchecked );
-
-    i_temp = 0;
-    aTv( ".3g2" ); aTv( ".3gp" ); aTv( ".3gp2" ); aTv( ".3gpp" ); aTv( ".amrec" );
-    aTv( ".amv" ); aTv( ".asf" ); aTv( ".avi" ); aTv( ".bik" ); aTv( ".divx" );
-    aTv( ".drc" ); aTv( ".dv" ); aTv( ".f4v" ); aTv( ".flv" ); aTv( ".gvi" );
-    aTv( ".gxf" ); aTv( ".m1v" ); aTv( ".m2t" ); aTv( ".m2v" ); aTv( ".m2ts" );
-    aTv( ".m4v" ); aTv( ".mkv" ); aTv( ".mov" ); aTv( ".mp2v" ); aTv( ".mp4" );
-    aTv( ".mp4v" ); aTv( ".mpa" ); aTv( ".mpe" ); aTv( ".mpeg" ); aTv( ".mpeg1" );
-    aTv( ".mpeg2" ); aTv( ".mpeg4" ); aTv( ".mpg" ); aTv( ".mpv2" ); aTv( ".mts" );
-    aTv( ".mtv" ); aTv( ".mxf" ); aTv( ".nsv" ); aTv( ".nuv" ); aTv( ".ogg" );
-    aTv( ".ogm" ); aTv( ".ogx" ); aTv( ".ogv" ); aTv( ".rec" ); aTv( ".rm" );
-    aTv( ".rmvb" ); aTv( ".rpl" ); aTv( ".thp" ); aTv( ".tod" ); aTv( ".ts" );
-    aTv( ".tts" ); aTv( ".vob" ); aTv( ".vro" ); aTv( ".webm" ); aTv( ".wmv" );
-    aTv( ".xesc" );
-    videoType->setCheckState( 0, ( i_temp > 0 ) ?
-                              ( ( i_temp == videoType->childCount() ) ?
-                               Qt::Checked : Qt::PartiallyChecked )
-                            : Qt::Unchecked );
-
-    i_temp = 0;
-    aTo( ".asx" ); aTo( ".b4s" ); aTo( ".cue" ); aTo( ".ifo" ); aTo( ".m3u" );
-    aTo( ".m3u8" ); aTo( ".pls" ); aTo( ".ram" ); aTo( ".sdp" ); aTo( ".vlc" );
-    aTo( ".wvx" ); aTo( ".xspf" );
-    otherType->setCheckState( 0, ( i_temp > 0 ) ?
-                              ( ( i_temp == otherType->childCount() ) ?
-                               Qt::Checked : Qt::PartiallyChecked )
-                            : Qt::Unchecked );
-
-#undef aTo
-#undef aTv
-#undef aTa
-
-    connect( filetypeList, &QTreeWidget::itemChanged, this, &SPrefsPanel::updateCheckBoxes );
-
-    QDialogButtonBox *buttonBox = new QDialogButtonBox( d );
-    QPushButton *closeButton = new QPushButton( qtr( "&Apply" ) );
-    QPushButton *clearButton = new QPushButton( qtr( "&Cancel" ) );
-    buttonBox->addButton( closeButton, QDialogButtonBox::AcceptRole );
-    buttonBox->addButton( clearButton, QDialogButtonBox::ActionRole );
-
-    assoLayout->addWidget( buttonBox, 1, 2, 1, 2 );
-
-    connect( closeButton, &QPushButton::clicked, [=]() {
-        this->saveAsso();
-        d->reject();
-    } );
-    d->resize( 300, 400 );
-    d->exec();
-    listAsso.clear();
-}
-
-void SPrefsPanel::updateCheckBoxes(QTreeWidgetItem* item, int column)
-{
-    if( column != 0 )
-        return;
-
-    /* temporarily block signals to avoid signal loops */
-    bool b_signalsBlocked = item->treeWidget()->blockSignals(true);
-
-    /* A parent checkbox was changed */
-    if( item->parent() == 0 )
-    {
-        Qt::CheckState checkState = item->checkState(0);
-        for( int i = 0; i < item->childCount(); i++ )
-        {
-            item->child(i)->setCheckState(0, checkState);
-        }
-    }
-
-    /* A child checkbox was changed */
-    else
-    {
-        bool b_diff = false;
-        for( int i = 0; i < item->parent()->childCount(); i++ )
-        {
-            if( i != item->parent()->indexOfChild(item) && item->checkState(0) != item->parent()->child(i)->checkState(0) )
-            {
-                b_diff = true;
-                break;
-            }
-        }
-
-        if( b_diff )
-            item->parent()->setCheckState(0, Qt::PartiallyChecked);
-        else
-            item->parent()->setCheckState(0, item->checkState(0));
-    }
-
-    /* Stop signal blocking */
-    item->treeWidget()->blockSignals(b_signalsBlocked);
-}
-
-void addAsso( QVLCRegistry *qvReg, const char *psz_ext )
-{
-    QString s_path( "VLC" ); s_path += psz_ext;
-    QString s_path2 = s_path;
-
-    /* Save a backup if already assigned */
-    char *psz_value = qvReg->ReadRegistry( psz_ext, "", ""  );
-
-    if( !EMPTY_STR(psz_value) && strcmp( qtu(s_path), psz_value ) )
-        qvReg->WriteRegistry( psz_ext, "VLC.backup", psz_value );
-    free( psz_value );
-
-    /* Put a "link" to VLC.EXT as default */
-    qvReg->WriteRegistry( psz_ext, "", qtu( s_path ) );
-
-    /* Create the needed Key if they weren't done in the installer */
-    if( !qvReg->RegistryKeyExists( qtu( s_path ) ) )
-    {
-        qvReg->WriteRegistry( psz_ext, "", qtu( s_path ) );
-        qvReg->WriteRegistry( qtu( s_path ), "", "Media file" );
-        qvReg->WriteRegistry( qtu( s_path.append( "\\shell" ) ), "", "Play" );
-
-        /* Get the installer path */
-        QVLCRegistry qvReg2( HKEY_LOCAL_MACHINE );
-        QString str_temp = qvReg2.ReadRegistry( "Software\\VideoLAN\\VLC", "", "" );
-
-        if( str_temp.size() )
-        {
-            qvReg->WriteRegistry( qtu( s_path.append( "\\Play\\command" ) ),
-                "", qtu( str_temp.append(" --started-from-file \"%1\"" ) ) );
-
-            qvReg->WriteRegistry( qtu( s_path2.append( "\\DefaultIcon" ) ),
-                        "", qtu( str_temp.append(",0") ) );
-        }
-    }
-}
-
-void delAsso( QVLCRegistry *qvReg, const char *psz_ext )
-{
-    QString s_path( "VLC"); s_path += psz_ext;
-    char *psz_value = qvReg->ReadRegistry( psz_ext, "", "" );
-
-    if( psz_value && !strcmp( qtu(s_path), psz_value ) )
-    {
-        free( psz_value );
-        psz_value = qvReg->ReadRegistry( psz_ext, "VLC.backup", "" );
-        if( psz_value )
-            qvReg->WriteRegistry( psz_ext, "", psz_value );
-
-        qvReg->DeleteValue( psz_ext, "VLC.backup" );
-    }
-    free( psz_value );
-}
-
-void SPrefsPanel::saveAsso()
-{
-    QVLCRegistry qvReg( HKEY_CLASSES_ROOT );
-    for( int i = 0; i < listAsso.size(); i ++ )
-    {
-        if( listAsso[i]->checkState( 0 ) > 0 )
-        {
-            addAsso( &qvReg, qtu( listAsso[i]->text( 0 ) ) );
-        }
-        else
-        {
-            delAsso( &qvReg, qtu( listAsso[i]->text( 0 ) ) );
-        }
-    }
-    /* Gruik ? Naaah */
-    qobject_cast<QDialog *>(listAsso[0]->treeWidget()->parent())->accept();
+    // Apply commits Windows defaults immediately, independently of Preferences
+    // Save/Cancel; opening or cancelling the selector itself never writes them.
+    auto *dialog = new Win32AssociationDialog(p_intf, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->open();
 }
 
 #endif /* _WIN32 */

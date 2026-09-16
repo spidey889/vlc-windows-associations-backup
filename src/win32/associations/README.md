@@ -13,3 +13,14 @@ validation, effective-default verification, journals, per-extension rollback and
 concurrent-change checks. A batch is not atomic: completed extensions remain
 completed after another fails. A writer-lock timeout marks the remaining entries
 unattempted instead of waiting repeatedly. Calls must stay off the UI thread.
+
+Preferences uses thin asynchronous Qt wrappers.
+Backend regression fixtures live in test/src/win32 and use disposable test
+extensions; the batch fixture supplies a fake backend and performs no registry I/O.
+Qt lifecycle/selection fixtures remain with the interface. The separate opt-in
+Shell smoke test must not be confused with these regression fixtures.
+
+The batch exposes a typed stop reason (`none` or `writerBusy`) and skipped count.
+Skipped extensions remain in the failure list so existing Qt presentation and
+retry selection stay unchanged. A busy final extension can have zero skipped
+entries. Completed transactions are not rolled back when a later item fails.

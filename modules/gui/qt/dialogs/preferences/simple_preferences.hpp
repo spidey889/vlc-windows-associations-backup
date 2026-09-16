@@ -73,10 +73,6 @@ enum {
 class ConfigControl;
 class QString;
 
-#ifdef _WIN32
-class QTreeWidgetItem;
-#endif
-
 class SPrefsCatList : public QWidget
 {
     Q_OBJECT
@@ -142,8 +138,6 @@ private:
     MLFoldersEditor *mlBannedFoldersEditor {};
 
 #ifdef _WIN32
-    QList<QTreeWidgetItem *> listAsso;
-    bool addType( const char * psz_ext, QTreeWidgetItem*, QTreeWidgetItem*, QVLCRegistry* );
     void saveLang();
 #endif
 
@@ -169,8 +163,6 @@ private slots:
     void updateLayoutSelection();
 #ifdef _WIN32
     void assoDialog();
-    void updateCheckBoxes( QTreeWidgetItem*, int );
-    void saveAsso();
 #endif
     void MLaddNewFolder( );
     void MLBanFolder( );
