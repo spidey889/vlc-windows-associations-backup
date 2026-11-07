@@ -9,7 +9,7 @@ bin_PROGRAMS = vlc
 noinst_PROGRAMS = vlc-static
 endif
 endif
-EXTRA_DIST = vlc_win32_rc.rc.in
+EXTRA_DIST = vlc_win32_rc.rc.in win32_associations.md
 CLEANFILES = vlc_win32_rc.rc
 
 SUFFIXES = .rc.in .rc
@@ -33,7 +33,11 @@ if !HAVE_WIN32
 vlc_SOURCES = vlc.c override.c
 vlc_LDADD += $(LIBDL)
 else
-vlc_SOURCES = winvlc.c
+vlc_SOURCES = winvlc.c \
+	win32_association_command.cpp win32_association_command.h \
+	win32_association_context.cpp win32_association_context.hpp
+vlc_CPPFLAGS += -I$(top_srcdir)/src
+vlc_LDADD += ../src/libvlc_win32_associations.la -luser32 -luserenv
 EXTRA_vlc_DEPENDENCIES = vlc_win32_rc.$(OBJEXT)
 vlc_LDFLAGS = -mwindows -Wc,-static
 vlc_LDADD += -lole32 vlc_win32_rc.$(OBJEXT)

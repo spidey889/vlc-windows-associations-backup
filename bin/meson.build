@@ -13,7 +13,8 @@ if build_vlc and (host_system != 'darwin' or have_osx) and not have_win_store an
             vlc_deps += dependency('Cocoa', required: true)
         endif
     elif host_system == 'windows'
-        vlc_sources += ['winvlc.c']
+        vlc_sources += files('winvlc.c', 'win32_association_command.cpp', 'win32_association_context.cpp')
+        vlc_deps += [win32_associations_dep, cc.find_library('user32'), cc.find_library('userenv')]
         vlc_deps += cc.find_library('ole32', required: true)
     else
         vlc_sources += ['vlc.c', 'override.c']

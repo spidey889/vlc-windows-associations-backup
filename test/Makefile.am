@@ -677,10 +677,23 @@ test_src_win32_userchoice_latest_hash_LDADD = $(association_hash_libs)
 test_src_win32_userchoice_hash_SOURCES = src/win32/userchoice_hash.cpp ../src/win32/associations/userchoice_hash.cpp $(association_hash_sources)
 test_src_win32_userchoice_hash_CPPFLAGS = $(association_CPPFLAGS)
 test_src_win32_userchoice_hash_LDADD = $(association_hash_libs)
-test_src_win32_association_registry_SOURCES = src/win32/association_registry.cpp ../src/win32/associations/userchoice_hash.cpp $(association_hash_sources)
+test_src_win32_association_registry_SOURCES = ../src/win32/associations/association_batch.cpp src/win32/association_registry.cpp ../src/win32/associations/userchoice_hash.cpp $(association_hash_sources)
 test_src_win32_association_registry_CPPFLAGS = $(association_CPPFLAGS)
 test_src_win32_association_registry_LDADD = $(association_hash_libs) -lshell32 -lshlwapi -lole32 -luuid
 test_src_win32_association_batch_SOURCES = src/win32/association_batch.cpp ../src/win32/associations/association_batch.cpp
 test_src_win32_association_batch_CPPFLAGS = $(association_CPPFLAGS)
 check_PROGRAMS += test_src_win32_userchoice_latest_hash test_src_win32_userchoice_hash test_src_win32_association_registry test_src_win32_association_batch
 endif
+
+if HAVE_WIN32_DESKTOP
+test_src_win32_association_command_SOURCES = \
+	src/win32/association_command.cpp \
+	../bin/win32_association_command.cpp \
+	../src/win32/associations/association_batch.cpp
+test_src_win32_association_command_CPPFLAGS = $(association_CPPFLAGS) -I$(top_srcdir)/bin
+test_src_win32_association_command_LDADD = -ladvapi32 -luser32 -lshell32 -luserenv
+check_PROGRAMS += test_src_win32_association_command
+endif
+
+# Manual NSIS fixture: mocked writes/processes; compiled with host makensis.
+EXTRA_DIST += src/win32/association_installer.py src/win32/association_installer.nsi

@@ -40,12 +40,18 @@ struct AssociationBatchResult
     // Additive metadata; skipped entries remain in failures for existing UIs.
     AssociationBatchStopReason stopReason = AssociationBatchStopReason::none;
     unsigned skipped = 0;
+    // Installer-only historical success; does not assert today's defaults.
+    bool alreadyCompleted = false;
 };
 
 // Synchronous and current-user only, with the same preconditions as
 // setDefaultAssociation(). Preserve input order and report every requested
 // extension; after a writer-lock timeout, do not retry the remaining entries.
 AssociationBatchResult setDefaultAssociations(const std::vector<std::wstring> &extensions);
+// Called only after the CLI has verified the ordinary current-user context.
+// Shared by both installers. Errors reading/persisting completion may throw.
+// Preferences continues to use the unrestricted batch above.
+AssociationBatchResult setInstallerDefaultAssociations(const std::vector<std::wstring> &extensions);
 } // namespace vlc::win32
 
 #endif

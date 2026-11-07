@@ -15,7 +15,13 @@
 ; 5. Installations ;
 ;;;;;;;;;;;;;;;;;;;;
 !macro InstallFile FILEREGEX
+  ; Ignore/failed extraction must not launch a stale maintenance command.
+  ClearErrors
   File "${FILEREGEX}"
+  ; Capture extraction errors before uninstall logging uses the same flag.
+  ${If} ${Errors}
+    StrCpy $AssociationSkipDefaults 1
+  ${EndIf}
   !define Index 'Line${__LINE__}'
   FindFirst $0 $1 "$INSTDIR\${FILEREGEX}"
   StrCmp $0 "" "${Index}-End"
@@ -30,16 +36,26 @@
 !macroend
 
 !macro InstallFolder FOLDER
+  ; Ignore/failed extraction must not launch a stale maintenance command.
+  ClearErrors
   SetOutPath "$INSTDIR\${FOLDER}"
   File /r /x "*.pdb" /x "*.dll.a" "${FOLDER}\*.*"
+  ${If} ${Errors}
+    StrCpy $AssociationSkipDefaults 1
+  ${EndIf}
   SetOutPath "$INSTDIR"
   Push "${FOLDER}"
   Call InstallFolderInternal
 !macroend
 
 !macro InstallFolderOptional FOLDER
+  ; Ignore/failed extraction must not launch a stale maintenance command.
+  ClearErrors
   SetOutPath "$INSTDIR\${FOLDER}"
   File /nonfatal /r /x "*.pdb" /x "*.dll.a" "${FOLDER}\*.*"
+  ${If} ${Errors}
+    StrCpy $AssociationSkipDefaults 1
+  ${EndIf}
   SetOutPath "$INSTDIR"
   Push "${FOLDER}"
   Call InstallFolderInternal

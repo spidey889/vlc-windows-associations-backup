@@ -250,6 +250,7 @@ RequestExecutionLevel admin
 !include helpers\extensions.nsh
 !include helpers\install.nsh
 !include helpers\utils.nsh
+!include helpers\associations.nsh
 
 ;;;;;;;;;;;;;;;;;;;;;;
 ; Installer sections ;
@@ -345,10 +346,10 @@ skip_uninstall32_cleanup:
   !insertmacro CloseUninstallLog
 
   ; Add VLC to "recommended programs" for the following extensions
-  WriteRegStr HKCR Applications\vlc.exe "" ""
-  WriteRegStr HKCR Applications\vlc.exe "FriendlyAppName" "${PRODUCT_NAME}"
-  WriteRegStr HKCR Applications\vlc.exe\shell\Open "" "$(ContextMenuEntry_PlayWith)"
-  WriteRegStr HKCR Applications\vlc.exe\shell\Open\command "" '"$INSTDIR\vlc.exe" --started-from-file "%1"'
+  WriteRegStr HKLM "Software\Classes\Applications\vlc.exe" "" ""
+  WriteRegStr HKLM "Software\Classes\Applications\vlc.exe" "FriendlyAppName" "${PRODUCT_NAME}"
+  WriteRegStr HKLM "Software\Classes\Applications\vlc.exe\shell\Open" "" "$(ContextMenuEntry_PlayWith)"
+  WriteRegStr HKLM "Software\Classes\Applications\vlc.exe\shell\Open\command" "" '"$INSTDIR\vlc.exe" --started-from-file "%1"'
   !insertmacro MacroAllExtensions RegisterExtensionMacro
 @BUILD_SKINS_TRUE@   !insertmacro MacroSkinExtensions RegisterSkinExtensionMacro
 
@@ -412,11 +413,11 @@ SectionGroupEnd
 
 ${MementoSection} "$(Name_Section05)" SEC05
   SectionIn 1 2 3
-  WriteRegStr HKCR "AudioCD\shell\PlayWithVLC" "" "$(ContextMenuEntry_PlayWith)"
-  WriteRegStr HKCR "AudioCD\shell\PlayWithVLC\command" "" \
+  WriteRegStr HKLM "Software\Classes\AudioCD\shell\PlayWithVLC" "" "$(ContextMenuEntry_PlayWith)"
+  WriteRegStr HKLM "Software\Classes\AudioCD\shell\PlayWithVLC\command" "" \
     '"$INSTDIR\vlc.exe" --started-from-file cdda:///%1'
-  WriteRegStr HKCR "DVD\shell\PlayWithVLC" "" "$(ContextMenuEntry_PlayWith)"
-  WriteRegStr HKCR "DVD\shell\PlayWithVLC\command" "" \
+  WriteRegStr HKLM "Software\Classes\DVD\shell\PlayWithVLC" "" "$(ContextMenuEntry_PlayWith)"
+  WriteRegStr HKLM "Software\Classes\DVD\shell\PlayWithVLC\command" "" \
     '"$INSTDIR\vlc.exe" --started-from-file dvd:///%1'
 
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers\EventHandlers\PlayDVDMovieOnArrival" "VLCPlayDVDMovieOnArrival" ""
@@ -475,41 +476,41 @@ ${MementoSection} "$(Name_Section05)" SEC05
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers\Handlers\VLCPlayBlurayOnArrival" "InvokeVerb" "Open"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers\Handlers\VLCPlayBlurayOnArrival" "Provider" "${PRODUCT_PUBLISHER} ${PRODUCT_NAME}"
 
-  WriteRegStr HKCR "VLC.DVDMovie" "" "VLC DVD Movie"
-  WriteRegStr HKCR "VLC.DVDMovie\shell" "" "Open"
-  WriteRegStr HKCR "VLC.DVDMovie\shell\Open\command" "" \
+  WriteRegStr HKLM "Software\Classes\VLC.DVDMovie" "" "VLC DVD Movie"
+  WriteRegStr HKLM "Software\Classes\VLC.DVDMovie\shell" "" "Open"
+  WriteRegStr HKLM "Software\Classes\VLC.DVDMovie\shell\Open\command" "" \
     '"$INSTDIR\vlc.exe" --started-from-file dvd:///%1'
-  WriteRegStr HKCR "VLC.DVDMovie\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
+  WriteRegStr HKLM "Software\Classes\VLC.DVDMovie\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
 
-  WriteRegStr HKCR "VLC.CDAudio" "" "VLC CD Audio"
-  WriteRegStr HKCR "VLC.CDAudio\shell" "" "Open"
-  WriteRegStr HKCR "VLC.CDAudio\shell\Open\command" "" \
+  WriteRegStr HKLM "Software\Classes\VLC.CDAudio" "" "VLC CD Audio"
+  WriteRegStr HKLM "Software\Classes\VLC.CDAudio\shell" "" "Open"
+  WriteRegStr HKLM "Software\Classes\VLC.CDAudio\shell\Open\command" "" \
     '"$INSTDIR\vlc.exe" --started-from-file cdda:///%1'
-  WriteRegStr HKCR "VLC.CDAudio\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
+  WriteRegStr HKLM "Software\Classes\VLC.CDAudio\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
 
-  WriteRegStr HKCR "VLC.VCDMovie" "" "VLC VCD Movie"
-  WriteRegStr HKCR "VLC.VCDMovie\shell" "" "Open"
-  WriteRegStr HKCR "VLC.VCDMovie\shell\Open\command" "" \
+  WriteRegStr HKLM "Software\Classes\VLC.VCDMovie" "" "VLC VCD Movie"
+  WriteRegStr HKLM "Software\Classes\VLC.VCDMovie\shell" "" "Open"
+  WriteRegStr HKLM "Software\Classes\VLC.VCDMovie\shell\Open\command" "" \
      '"$INSTDIR\vlc.exe" --started-from-file vcd:///%1'
-  WriteRegStr HKCR "VLC.VCDMovie\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
+  WriteRegStr HKLM "Software\Classes\VLC.VCDMovie\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
 
-  WriteRegStr HKCR "VLC.SVCDMovie" "" "VLC SVCD Movie"
-  WriteRegStr HKCR "VLC.SVCDMovie\shell" "" "Open"
-  WriteRegStr HKCR "VLC.SVCDMovie\shell\Open\command" "" \
+  WriteRegStr HKLM "Software\Classes\VLC.SVCDMovie" "" "VLC SVCD Movie"
+  WriteRegStr HKLM "Software\Classes\VLC.SVCDMovie\shell" "" "Open"
+  WriteRegStr HKLM "Software\Classes\VLC.SVCDMovie\shell\Open\command" "" \
      '"$INSTDIR\vlc.exe" --started-from-file vcd:///%1'
-  WriteRegStr HKCR "VLC.SVCDMovie\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
+  WriteRegStr HKLM "Software\Classes\VLC.SVCDMovie\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
 
-  WriteRegStr HKCR "VLC.OPENFolder" "" "VLC Play content"
-  WriteRegStr HKCR "VLC.OPENFolder\shell" "" "Open"
-  WriteRegStr HKCR "VLC.OPENFolder\shell\Open\command" "" \
+  WriteRegStr HKLM "Software\Classes\VLC.OPENFolder" "" "VLC Play content"
+  WriteRegStr HKLM "Software\Classes\VLC.OPENFolder\shell" "" "Open"
+  WriteRegStr HKLM "Software\Classes\VLC.OPENFolder\shell\Open\command" "" \
      '"$INSTDIR\vlc.exe" %1'
-  WriteRegStr HKCR "VLC.OPENFolder\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
+  WriteRegStr HKLM "Software\Classes\VLC.OPENFolder\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
 
-  WriteRegStr HKCR "VLC.Bluray" "" "VLC Bluray"
-  WriteRegStr HKCR "VLC.Bluray\shell" "" "Open"
-  WriteRegStr HKCR "VLC.Bluray\shell\Open\command" "" \
+  WriteRegStr HKLM "Software\Classes\VLC.Bluray" "" "VLC Bluray"
+  WriteRegStr HKLM "Software\Classes\VLC.Bluray\shell" "" "Open"
+  WriteRegStr HKLM "Software\Classes\VLC.Bluray\shell\Open\command" "" \
     '"$INSTDIR\vlc.exe" --started-from-file bluray:///%1'
-  WriteRegStr HKCR "VLC.Bluray\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
+  WriteRegStr HKLM "Software\Classes\VLC.Bluray\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
 
 ${MementoSectionEnd}
 
@@ -523,7 +524,7 @@ SectionGroup /e "!$(Name_Section06)" SEC06
   SectionGroupEnd
   SectionGroup "$(Name_SectionGroupOther)"
     !insertmacro MacroOtherExtensions AssociateExtensionSection
-    !insertmacro MacroSkinExtensions AssociateSkinExtensionSection
+@BUILD_SKINS_TRUE@    !insertmacro MacroSkinExtensions AssociateSkinExtensionSection
     !insertmacro MacroUnassociatedExtensions AssociateExtensionUnselectedSection
   SectionGroupEnd
 SectionGroupEnd
@@ -559,6 +560,8 @@ Function .onInit
 
 @HAVE_WIN64_TRUE@ SetRegView 64
 
+  Call InitAssociationCommand
+
 ${MementoSectionRestore}
 
 @HAVE_WIN64_TRUE@ !include "x64.nsh"
@@ -588,6 +591,7 @@ WinOk:
     SetRegView 32
 
     Call ReadPreviousVersion
+    Call AllowAssociationUpgrade
 
     ${If} $PreviousVersion != ""
       ReadRegStr $32bitUninstaller ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "UninstallString"
@@ -600,6 +604,7 @@ WinOk:
 
   ; See if previous version exists
   Call ReadPreviousVersion
+  Call AllowAssociationUpgrade
 
   ${If} $PreviousVersion == ""
     StrCpy $PerformUpdate 0
@@ -772,6 +777,7 @@ FunctionEnd
 
 Function .OnInstSuccess
     ${MementoSectionSave}
+    Call RunAssociationCommand
 FunctionEnd
 
 ;; End function
@@ -871,10 +877,10 @@ Section "un.$(Name_Section91)" SEC91
 
   DeleteRegKey HKLM Software\VideoLAN
 
-  DeleteRegKey HKCR Applications\vlc.exe
+  DeleteRegKey HKLM "Software\Classes\Applications\vlc.exe"
   DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\App Paths\vlc.exe"
-  DeleteRegKey HKCR AudioCD\shell\PlayWithVLC
-  DeleteRegKey HKCR DVD\shell\PlayWithVLC
+  DeleteRegKey HKLM "Software\Classes\AudioCD\shell\PlayWithVLC"
+  DeleteRegKey HKLM "Software\Classes\DVD\shell\PlayWithVLC"
   DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers\EventHandlers\PlayDVDMovieOnArrival" "VLCPlayDVDMovieOnArrival"
   DeleteRegKey HKLM Software\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers\Handlers\VLCPlayDVDMovieOnArrival
   DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers\EventHandlers\PlayCDAudioOnArrival" "VLCPlayCDAudioOnArrival"
@@ -892,13 +898,13 @@ Section "un.$(Name_Section91)" SEC91
 
   DeleteRegKey HKLM Software\Clients\Media\VLC
   DeleteRegValue HKLM "Software\RegisteredApplications" "VLC"
-  DeleteRegKey HKCR "VLC.MediaFile"
-  DeleteRegKey HKCR "VLC.DVDMovie"
-  DeleteRegKey HKCR "VLC.CDAudio"
-  DeleteRegKey HKCR "VLC.VCDMovie"
-  DeleteRegKey HKCR "VLC.SVCDMovie"
-  DeleteRegKey HKCR "VLC.OPENFolder"
-  DeleteRegKey HKCR "VLC.Bluray"
+  DeleteRegKey HKLM "Software\Classes\VLC.MediaFile"
+  DeleteRegKey HKLM "Software\Classes\VLC.DVDMovie"
+  DeleteRegKey HKLM "Software\Classes\VLC.CDAudio"
+  DeleteRegKey HKLM "Software\Classes\VLC.VCDMovie"
+  DeleteRegKey HKLM "Software\Classes\VLC.SVCDMovie"
+  DeleteRegKey HKLM "Software\Classes\VLC.OPENFolder"
+  DeleteRegKey HKLM "Software\Classes\VLC.Bluray"
 
 
   DeleteRegKey HKLM \

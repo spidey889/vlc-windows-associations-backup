@@ -22,6 +22,40 @@
 
 namespace
 {
+std::wstring installerFixtureRoot, fixtureBase, fixtureJournal, fixtureExtension;
+bool installerLegacy = false;
+bool installerMode = false, failCompletionWrite = false, failCompletionFlush = false;
+HKEY completionHandle = nullptr;
+const std::wstring productionCompletionPath = L"Software\\VideoLAN\\VLC\\InstallerDefaults";
+
+LSTATUS WINAPI testCreateKey(HKEY root, LPCWSTR path, DWORD reserved, LPWSTR cls, DWORD options,
+                            REGSAM access, const LPSECURITY_ATTRIBUTES security, PHKEY result, LPDWORD disposition)
+{
+    const std::wstring value(path);
+    if (root == HKEY_CURRENT_USER && value == productionCompletionPath)
+    {
+        if (installerFixtureRoot.empty()) return ERROR_ACCESS_DENIED;
+        const auto status = RegCreateKeyExW(root, installerFixtureRoot.c_str(), reserved, cls, options,
+                                           access, security, result, disposition);
+        if (status == ERROR_SUCCESS) completionHandle = *result;
+        return status;
+    }
+    // Guard future fixture edits too: production code may write only the unique
+    // disposable extension and its journal, never an actual VLC user setting.
+    if (root != HKEY_CURRENT_USER || fixtureBase.empty() ||
+        (value.rfind(fixtureBase, 0) != 0 && value.rfind(fixtureJournal, 0) != 0))
+        return ERROR_ACCESS_DENIED;
+    return RegCreateKeyExW(root, path, reserved, cls, options, access, security, result, disposition);
+}
+
+DWORD WINAPI testModuleName(HMODULE module, LPWSTR output, DWORD size)
+{
+    if (!installerMode) return GetModuleFileNameW(module, output, size);
+    if (size < 7) return 0;
+    std::wcscpy(output, L"unused");
+    return 6;
+}
+
 bool failNextHash = false;
 unsigned hashFailuresRemaining = 0;
 unsigned choiceWrites = 0;
@@ -124,6 +158,11 @@ DWORD WINAPI testWaitForSingleObject(HANDLE handle, DWORD milliseconds)
 LSTATUS WINAPI testSetValue(HKEY key, LPCWSTR name, DWORD reserved,
                            DWORD type, const BYTE *data, DWORD bytes)
 {
+    if (failCompletionWrite && name != nullptr && std::wcscmp(name, L"Completed") == 0)
+    {
+        failCompletionWrite = false;
+        return ERROR_ACCESS_DENIED;
+    }
     if (name != nullptr && (std::wcscmp(name, L"ProgId") == 0 || std::wcscmp(name, L"Hash") == 0))
         ++choiceWrites;
     if (failNextProgramId && name != nullptr && std::wcscmp(name, L"ProgId") == 0)
@@ -157,6 +196,11 @@ LSTATUS WINAPI testSetValue(HKEY key, LPCWSTR name, DWORD reserved,
 
 LSTATUS WINAPI testFlushKey(HKEY key)
 {
+    if (failCompletionFlush && key == completionHandle)
+    {
+        failCompletionFlush = false;
+        return ERROR_WRITE_FAULT;
+    }
     if (flushesUntilFailure != 0)
     {
         if (--flushesUntilFailure != 0)
@@ -190,6 +234,34 @@ LSTATUS WINAPI testGetValue(HKEY key, LPCWSTR path, LPCWSTR name, DWORD flags,
     {
         throwNextRead = false;
         throw 42; // Exercise the public API's catch-all, not just std::exception.
+    }
+    if (key == HKEY_CURRENT_USER && path && productionCompletionPath == path)
+    {
+        if (installerFixtureRoot.empty()) return ERROR_ACCESS_DENIED;
+        path = installerFixtureRoot.c_str();
+    }
+    // Exercise legacy dispatch even on a host publishing UserChoiceLatest.
+    // Only this test's metadata read is masked; no Windows metadata is changed.
+    if (installerLegacy && key == HKEY_LOCAL_MACHINE && name &&
+        std::wstring_view(name) == L"HashVersion")
+        return ERROR_FILE_NOT_FOUND;
+    std::optional<std::wstring> fake;
+    if (installerMode && path && name && key == HKEY_CURRENT_USER && fixtureExtension == name &&
+        std::wstring_view(path) == L"Software\\Clients\\Media\\VLC\\Capabilities\\FileAssociations")
+        fake = L"VLC.mp4";
+    if (installerMode && key == HKEY_CLASSES_ROOT && path &&
+        std::wstring_view(path) == L"VLC.mp4\\shell\\open\\command")
+        fake = L"\"unused\" \"%1\"";
+    if (fake)
+    {
+        const DWORD needed = static_cast<DWORD>((fake->size() + 1) * sizeof(wchar_t));
+        const DWORD available = *bytes;
+        *bytes = needed;
+        if (type) *type = REG_SZ;
+        if (!data) return ERROR_SUCCESS;
+        if (available < needed) return ERROR_MORE_DATA;
+        std::memcpy(data, fake->c_str(), needed);
+        return ERROR_SUCCESS;
     }
     return RegGetValueW(key, path, name, flags, type, data, bytes);
 }
@@ -257,6 +329,8 @@ bool testComputeHash(const std::wstring &input, const WorkingSeeds &seeds,
 // effective-default/command queries are controlled separately from hash validity.
 // Crash cases construct interrupted records and invoke production recovery;
 // they test persistence ordering/repair, not a physical power-loss experiment.
+#define GetModuleFileNameW testModuleName
+#define RegCreateKeyExW testCreateKey
 #define RegSetValueExW testSetValue
 #define RegFlushKey testFlushKey
 #define RegDeleteTreeW testDeleteTree
@@ -268,6 +342,8 @@ bool testComputeHash(const std::wstring &input, const WorkingSeeds &seeds,
 #define AssocQueryStringW testAssocQueryString
 #define WaitForSingleObject testWaitForSingleObject
 #include "win32/associations/win32_associations.cpp"
+#undef GetModuleFileNameW
+#undef RegCreateKeyExW
 #undef WaitForSingleObject
 #undef AssocQueryStringW
 #undef CoCreateInstance
@@ -283,12 +359,23 @@ int main()
 {
     using namespace vlc::win32;
     // No real media extensions or registrations are modified. Refuse collisions
-    // before touching anything, and remove only these two unique fixture roots.
+    // before touching anything; completion history is redirected to a third
+    // unique fixture root. Never read/write the actual installer success record.
     const std::wstring extension = L".vlc-choice-test-" +
         std::to_wstring(GetCurrentProcessId()) + L"-" + std::to_wstring(GetTickCount64());
     const std::wstring base = extensionRoot(extension);
     const std::wstring journal = recoveryPath(extension);
-    if (keyExists(HKEY_CURRENT_USER, base) || keyExists(HKEY_CURRENT_USER, journal))
+    const std::wstring omitted = extension + L"-omitted";
+    const std::wstring omittedBase = extensionRoot(omitted);
+    const std::wstring omittedJournal = recoveryPath(omitted);
+    fixtureBase = base;
+    fixtureJournal = journal;
+    fixtureExtension = extension;
+    installerFixtureRoot = L"Software\\VideoLAN\\VLC\\AssociationOnceTest-" +
+        std::to_wstring(GetCurrentProcessId()) + L"-" + std::to_wstring(GetTickCount64());
+    if (keyExists(HKEY_CURRENT_USER, installerFixtureRoot)) return 1;
+    if (keyExists(HKEY_CURRENT_USER, base) || keyExists(HKEY_CURRENT_USER, journal) ||
+        keyExists(HKEY_CURRENT_USER, omittedBase) || keyExists(HKEY_CURRENT_USER, omittedJournal))
         return 1;
 
     bool rejectTarget = false;
@@ -325,6 +412,9 @@ int main()
         calculationsUntilInterleave = 0;
         deleteUserTree(base);
         deleteUserTree(journal);
+        deleteUserTree(installerFixtureRoot);
+        deleteUserTree(omittedBase);
+        deleteUserTree(omittedJournal);
         notifyAssociationChange();
     };
     const auto expectFailure = [&](const auto &operation) {
@@ -367,6 +457,124 @@ int main()
                                             KEY_SET_VALUE, &rawKey);
         const RegistryKey denied(rawKey);
         require(status == ERROR_ACCESS_DENIED, "Test DACL did not deny value writes");
+    };
+
+    // Run the same completion scenarios through both writers. Legacy must run
+    // before the host-dependent Latest gate, including on older Windows builds.
+    const auto runInstallerScenarios = [&](ChoiceFormat format) {
+        cleanup();
+        installerMode = true;
+        installerLegacy = format == ChoiceFormat::legacy;
+        const auto validChoice = [&](const wchar_t *programId) {
+            return installerLegacy ? legacyChoiceValid(extension, programId)
+                                   : latestChoiceValid(extension, programId);
+        };
+        const auto completed = [&]() {
+            return readDword(HKEY_CURRENT_USER, installerFixtureRoot, L"Completed").has_value();
+        };
+        expectFailure([&]() { setInstallerDefaultAssociations({}); });
+        require(!completed(), "Empty selection recorded success");
+        expectFailure([&]() { setInstallerDefaultAssociations({extension, L"bad"}); });
+        require(!completed(), "Invalid complete selection recorded success");
+        timeoutNextAssociationWait = true;
+        require(setInstallerDefaultAssociations({extension}).stopReason == AssociationBatchStopReason::writerBusy &&
+                !completed(), "Busy wrapper recorded success");
+        queryUnavailable = true;
+        const auto unconfirmed = setInstallerDefaultAssociations({extension});
+        require(!unconfirmed.needsUserChoice.empty() && !completed(), "Unconfirmed Windows acceptance recorded success");
+        queryUnavailable = false;
+        // An interrupted extension is omitted from a later successful selection.
+        // Leave the real previous hash behind a newly written target ProgId.
+        const auto interruptOmitted = [&]() {
+            writeChoice(omitted, format, L"VLC.mp3", false, L"unused");
+            saveRecovery(omitted, format, true, L"VLC.mp3", L"VLC.mp4");
+            const auto path = installerLegacy ? legacyChoicePath(omitted)
+                                             : latestChoicePath(omitted) + L"\\ProgId";
+            writeString(createUserKey(path).get(), L"ProgId", L"VLC.mp4");
+        };
+        const auto validOmitted = [&](const wchar_t *programId) {
+            return installerLegacy ? legacyChoiceValid(omitted, programId)
+                                   : latestChoiceValid(omitted, programId);
+        };
+        interruptOmitted();
+        // A later explicit operation recovers and may succeed; never a retry loop.
+        const auto first = setInstallerDefaultAssociations({extension});
+        require(!first.alreadyCompleted && first.failures.empty() && first.needsUserChoice.empty() && completed(),
+                "Verified installer batch did not persist success");
+        writeChoice(extension, format, L"VLC.mp3", false, L"unused");
+        choiceWrites = 0;
+        const auto second = setInstallerDefaultAssociations({extension});
+        require(second.alreadyCompleted && choiceWrites == 0 && validChoice(L"VLC.mp3"),
+                "Later installer reclaimed a manually changed default");
+        require(setDefaultAssociation(extension).status == AssociationStatus::changed && completed(),
+                "Preferences/manual operation was restricted by installer history");
+
+        // Selection now includes the previously omitted extension. It is not
+        // registered by the fake frontend: recovery must restore the old choice,
+        // then honor history without trying to claim a fresh VLC default.
+        require(keyExists(HKEY_CURRENT_USER, omittedJournal), "Omitted fixture journal was lost");
+        const auto repaired = setInstallerDefaultAssociations({omitted});
+        require(repaired.alreadyCompleted && validOmitted(L"VLC.mp3") &&
+                !keyExists(HKEY_CURRENT_USER, omittedJournal) && completed(),
+                "Historical completion skipped recovery or claimed a new default");
+
+        interruptOmitted();
+        writeChoice(omitted, format, L"Other.Player", false, L"unused");
+        choiceWrites = 0;
+        require(setInstallerDefaultAssociations({omitted}).alreadyCompleted && choiceWrites == 0 &&
+                validOmitted(L"Other.Player") && !keyExists(HKEY_CURRENT_USER, omittedJournal),
+                "Recovery behind completion overwrote a later user choice");
+
+        interruptOmitted();
+        failNextProgramId = true;
+        expectFailure([&]() { setInstallerDefaultAssociations({omitted}); });
+        require(completed() && keyExists(HKEY_CURRENT_USER, omittedJournal),
+                "Failed cleanup lost its journal or changed completion history");
+        require(setInstallerDefaultAssociations({omitted}).alreadyCompleted &&
+                validOmitted(L"VLC.mp3") && !keyExists(HKEY_CURRENT_USER, omittedJournal),
+                "A later cleanup request did not recover the retained journal");
+
+        deleteUserTree(installerFixtureRoot);
+        failCompletionWrite = true;
+        expectFailure([&]() { setInstallerDefaultAssociations({extension}); });
+        require(!completed(), "Failed completion write left success");
+        failCompletionFlush = true;
+        completionHandle = nullptr;
+        expectFailure([&]() { setInstallerDefaultAssociations({extension}); });
+        require(!completed() && !failCompletionFlush, "Failed completion flush left success");
+        const auto originalQuery = onDefaultQuery;
+        unsigned verificationQueries = 0;
+        onDefaultQuery = [&](std::wstring_view name) -> std::optional<std::wstring> {
+            if (++verificationQueries > 1) return std::nullopt;
+            return originalQuery(name);
+        };
+        expectFailure([&]() { setInstallerDefaultAssociations({extension}); });
+        require(verificationQueries == 2 && !completed(), "Final batch recheck failure recorded success");
+        onDefaultQuery = originalQuery;
+        { const RegistryKey key = createUserKey(productionCompletionPath); writeString(key.get(), L"Completed", L"bad"); }
+        choiceWrites = 0;
+        expectFailure([&]() { setInstallerDefaultAssociations({extension}); });
+        require(choiceWrites == 0, "Malformed completion record authorized default writes");
+        deleteUserTree(installerFixtureRoot);
+        throwNextRead = true;
+        bool unreadable = false;
+        try { setInstallerDefaultAssociations({extension}); } catch (...) { unreadable = true; }
+        require(unreadable && choiceWrites == 0 && !completed(), "Unreadable completion record authorized writes");
+
+        // An earlier success in a partially failed batch is not global completion.
+        const auto partial = setInstallerDefaultAssociations({extension, extension + L"-unregistered"});
+        require(!partial.failures.empty() && !completed(), "Partial batch recorded global success");
+        // Simulate an interrupted transaction. The real backend must recover it
+        // before its already-default path can count toward installer completion.
+        saveRecovery(extension, format, true, L"VLC.mp3", L"VLC.mp4");
+        const auto recovered = setInstallerDefaultAssociations({extension});
+        require(recovered.failures.empty() && recovered.needsUserChoice.empty() && completed() &&
+                !keyExists(HKEY_CURRENT_USER, journal), "Interrupted transaction was not recovered before completion");
+        cleanup();
+        installerMode = false;
+        installerLegacy = false;
+        std::cout << "Installer first-success regression tests passed ("
+                  << (format == ChoiceFormat::legacy ? "legacy" : "latest") << ")\n";
     };
 
     try
@@ -444,6 +652,7 @@ int main()
         require(!keyExists(HKEY_CURRENT_USER, base) && !keyExists(HKEY_CURRENT_USER, journal),
                 "Legacy registry cleanup failed");
         std::cout << "Legacy association transaction tests passed\n";
+        runInstallerScenarios(ChoiceFormat::legacy);
 
         // The compatibility writer requires the published MachineID and format.
         // Only latest-format cases are unavailable on other Windows builds;
@@ -775,6 +984,7 @@ int main()
         cleanup();
         require(!keyExists(HKEY_CURRENT_USER, base) && !keyExists(HKEY_CURRENT_USER, journal),
                 "Disposable registry cleanup failed");
+        runInstallerScenarios(ChoiceFormat::latest);
         std::cout << "Windows association transaction tests passed\n";
         return 0;
     }

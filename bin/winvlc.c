@@ -41,6 +41,7 @@
 #include <shlobj.h>
 
 #include "../lib/libvlc_internal.h"
+#include "win32_association_command.h"
 
 #ifdef HAVE_BREAKPAD
 void CheckCrashDump( const wchar_t* crashdump_path );
@@ -129,6 +130,15 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
     wchar_t **wargv = CommandLineToArgvW (GetCommandLine (), &argc);
     if (wargv == NULL)
         return 1;
+
+    /* Installer operations must not initialize configuration, crash reporting,
+     * libVLC/Qt, or forward to an already running player instance. */
+    int association_result = vlc_win32_association_command(argc, wargv);
+    if (association_result != VLC_WIN32_ASSOCIATION_NOT_HANDLED)
+    {
+        LocalFree(wargv);
+        return association_result;
+    }
 
     char *argv[argc + 3];
     BOOL crash_handling = TRUE;

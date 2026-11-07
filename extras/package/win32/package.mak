@@ -142,6 +142,10 @@ if HAVE_MAKENSIS
 	cp    $(top_builddir)/extras/package/win32/NSIS/spad.nsi      "$(win32_destdir)/"
 	cp -r $(srcdir)/extras/package/win32/NSIS/languages           "$(win32_destdir)/"
 	cp -r $(srcdir)/extras/package/win32/NSIS/helpers             "$(win32_destdir)/"
+	python3 "$(top_srcdir)/extras/package/win32/msi/msi-associations.py" \
+	    "$(top_srcdir)/extras/package/win32/msi/extensions.wxs" \
+	    "$(win32_destdir)/helpers/msi-compat.nsh" \
+	    --nsis-extensions "$(top_srcdir)/extras/package/win32/NSIS/helpers/extensions.nsh"
 	cp "$(top_srcdir)/extras/package/win32/NSIS/nsProcess.nsh" "$(win32_destdir)/NSIS/"
 	cp "$(top_srcdir)/extras/package/win32/NSIS/vlc_branding.bmp" "$(win32_destdir)/NSIS/"
 endif
@@ -195,6 +199,9 @@ EXTRA_DIST += \
 	extras/package/win32/libvlccore.dll.manifest.in \
 	extras/package/win32/configure.sh \
 	extras/package/win32/NSIS/vlc.win32.nsi.in \
+	extras/package/win32/NSIS/helpers/associations.nsh \
+	extras/package/win32/NSIS/helpers/extensions.nsh \
+	extras/package/win32/msi/extensions.wxs \
 	extras/package/win32/NSIS/spad.nsi.in \
 	extras/package/win32/NSIS/vlc_branding.bmp \
 	extras/package/win32/NSIS/languages/BengaliExtra.nsh \

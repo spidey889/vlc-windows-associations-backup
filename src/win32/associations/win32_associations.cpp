@@ -7,6 +7,7 @@
  *****************************************************************************/
 
 #include "win32_associations.hpp"
+#include "association_batch.hpp"
 #include "userchoice_hash.hpp"
 #include "userchoice_latest_hash/HashCommon.h"
 
@@ -880,6 +881,10 @@ std::optional<PendingChange> loadRecovery(std::wstring_view extension)
     return PendingChange{static_cast<ChoiceFormat>(*format), *hadPrevious != 0, previous, *target};
 }
 
+// Outside configuration files and installer-owned HKLM components: retain this
+// user history across reset, uninstall/reinstall, bitness and installer changes.
+const std::wstring installerDefaultsPath = L"Software\\VideoLAN\\VLC\\InstallerDefaults";
+
 class AssociationLock
 {
   public:
@@ -1190,6 +1195,75 @@ bool isDefaultAssociation(std::wstring_view extension) noexcept
     catch (...)
     {
         return false;
+    }
+}
+AssociationBatchResult setInstallerDefaultAssociations(const std::vector<std::wstring> &extensions)
+{
+    if (extensions.empty())
+        throw std::invalid_argument("Installer association selection is empty");
+    for (const auto &extension : extensions)
+        if (!validExtension(extension))
+            throw std::invalid_argument("Invalid installer association selection");
+
+    try
+    {
+        // Windows mutex ownership is recursive on this thread. Hold the existing
+        // per-user lock across the whole operation, including each transaction's
+        // nested lock, so another VLC installer cannot pass the completion check.
+        const AssociationLock lock;
+        // Historical success suppresses new default requests, not cleanup of an
+        // earlier interrupted transaction (possibly from a different selection).
+        // Recover only existing journals for this request, using the same
+        // ownership/snapshot checks that preserve later user choices.
+        for (const auto &extension : extensions)
+        {
+            if (!keyExists(HKEY_CURRENT_USER, recoveryPath(extension)))
+                continue;
+            const auto scheme = hashScheme(keyExists(HKEY_CURRENT_USER, latestChoicePath(extension)));
+            if (scheme == detail::HashScheme::unsupported)
+                throw NeedsUserChoice("Windows uses an unsupported default-app format");
+            recoverPending(extension, currentExecutable(), scheme);
+        }
+        const auto completed = readDword(HKEY_CURRENT_USER, installerDefaultsPath, L"Completed");
+        if (completed)
+        {
+            if (*completed != 1)
+                throw std::runtime_error("Unrecognized installer association completion record");
+            AssociationBatchResult batch;
+            batch.alreadyCompleted = true;
+            return batch; // Recovery above is cleanup only; never request new defaults.
+        }
+
+        auto batch = setDefaultAssociations(extensions);
+        if (!batch.failures.empty() || !batch.needsUserChoice.empty() ||
+            batch.stopReason != AssociationBatchStopReason::none)
+            return batch;
+        // Per-extension success is not an atomic batch. Recheck the entire
+        // selection before recording success; Settings does not share our lock.
+        for (const auto &extension : extensions)
+            if (keyExists(HKEY_CURRENT_USER, recoveryPath(extension)) || !isDefaultAssociation(extension))
+                throw std::runtime_error("Installer association completion could not be verified");
+
+        const RegistryKey key = createUserKey(installerDefaultsPath);
+        writeDword(key.get(), L"Completed", 1);
+        const LSTATUS status = RegFlushKey(key.get());
+        if (status != ERROR_SUCCESS)
+        {
+            // Do not leave a visible success value after failed persistence.
+            RegDeleteValueW(key.get(), L"Completed");
+            RegFlushKey(key.get());
+            throwWindowsError("Persisting installer association completion", status);
+        }
+        return batch;
+    }
+    catch (const AssociationLockBusy &error)
+    {
+        AssociationBatchResult batch;
+        batch.stopReason = AssociationBatchStopReason::writerBusy;
+        batch.skipped = static_cast<unsigned>(extensions.size());
+        for (const auto &extension : extensions)
+            batch.failures.emplace_back(extension, error.what());
+        return batch;
     }
 }
 } // namespace vlc::win32

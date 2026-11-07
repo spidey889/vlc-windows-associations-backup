@@ -52,3 +52,5 @@ distcleanmsi: cleanmsi
 	-rm -f $(MSIOUTFILE)
 
 .PHONY: heat candle cleanmsi distcleanmsi package-msi
+
+EXTRA_DIST += extras/package/win32/msi/msi-associations.py

@@ -445,7 +445,7 @@ if have_win_desktop
     foreach association_test : [
         ['test_src_win32_userchoice_latest_hash', files('win32/userchoice_latest_hash.cpp') + association_hash_sources],
         ['test_src_win32_userchoice_hash', files('win32/userchoice_hash.cpp', '../../src/win32/associations/userchoice_hash.cpp') + association_hash_sources],
-        ['test_src_win32_association_registry', files('win32/association_registry.cpp', '../../src/win32/associations/userchoice_hash.cpp') + association_hash_sources],
+        ['test_src_win32_association_registry', files('win32/association_registry.cpp', '../../src/win32/associations/association_batch.cpp', '../../src/win32/associations/userchoice_hash.cpp') + association_hash_sources],
         ['test_src_win32_association_batch', files('win32/association_batch.cpp', '../../src/win32/associations/association_batch.cpp')],
     ]
         vlc_tests += {
@@ -456,4 +456,16 @@ if have_win_desktop
             'dependencies': win32_associations_deps,
         }
     endforeach
+endif
+
+if have_win_desktop
+    vlc_tests += {
+        'name': 'test_src_win32_association_command',
+        'sources': files('win32/association_command.cpp',
+            '../../bin/win32_association_command.cpp',
+            '../../src/win32/associations/association_batch.cpp'),
+        'suite': ['src', 'win32-associations'],
+        'include_directories': [win32_associations_include, include_directories('../../bin')],
+        'dependencies': [cc.find_library('advapi32'), cc.find_library('user32'), cc.find_library('shell32'), cc.find_library('userenv')],
+    }
 endif

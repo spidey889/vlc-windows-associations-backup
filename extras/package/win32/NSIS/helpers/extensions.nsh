@@ -1,4 +1,5 @@
 !include "StrFunc.nsh"
+!include "${__FILEDIR__}\msi-compat.nsh"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 1. File type associations ;
@@ -8,17 +9,12 @@
 ${StrRep}
 ${StrCase}
 
-;; Function that associates one extension with VLC
-Function AssociateExtension
-  ; back up old value for extension $R0 (eg. ".opt")
-  ReadRegStr $1 HKCR "$R0" ""
-  StrCmp $1 "" NoBackup
-    StrCmp $1 "VLC$R0" "NoBackup"
-    WriteRegStr HKCR "$R0" "VLC.backup" $1
-NoBackup:
-  WriteRegStr HKCR "$R0" "" "VLC$R0"
-FunctionEnd
+; Default selection belongs exclusively to the verified current-user command.
+; Never assign HKCR extension defaults here: silent installs, upgrades and
+; different-account elevation must preserve every user's existing fallback.
 
+; HKCR can target the elevated administrator's per-user overrides. Address
+; machine classes explicitly for registration and the matching cleanup.
 ;; Function that registers one extension for VLC
 Function RegisterExtension
   ; R0 contains the extension, R1 contains the type (Audio/Video)
@@ -27,26 +23,41 @@ Function RegisterExtension
   ; And capitalize the extension
   ${StrCase} $R2 $R2 "U"
   ; for instance: MKV Video File (VLC)
-  WriteRegStr HKCR "VLC$R0" "" "$R2 $R1 File (VLC)"
-  WriteRegStr HKCR "VLC$R0\shell" "" "Open"
-  WriteRegStr HKCR "VLC$R0\shell\Open" "" "$(ShellAssociation_Play)"
-  WriteRegStr HKCR "VLC$R0\shell\Open" "MultiSelectModel" "Player"
-  WriteRegStr HKCR "VLC$R0\shell\Open\command" "" '"$INSTDIR\vlc.exe" --started-from-file "%1"'
-  WriteRegStr HKCR "VLC$R0\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
-  WriteRegStr HKCR "Applications\vlc.exe\SupportedTypes" $0 ""
+  WriteRegStr HKLM "Software\Classes\VLC$R0" "" "$R2 $R1 File (VLC)"
+  WriteRegStr HKLM "Software\Classes\VLC$R0\shell" "" "Open"
+  WriteRegStr HKLM "Software\Classes\VLC$R0\shell\Open" "" "$(ShellAssociation_Play)"
+  WriteRegStr HKLM "Software\Classes\VLC$R0\shell\Open" "MultiSelectModel" "Player"
+  WriteRegStr HKLM "Software\Classes\VLC$R0\shell\Open\command" "" '"$INSTDIR\vlc.exe" --started-from-file "%1"'
+  WriteRegStr HKLM "Software\Classes\VLC$R0\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
+  WriteRegStr HKLM "Software\Classes\Applications\vlc.exe\SupportedTypes" $R0 ""
 
   ${If} ${AtLeastWinVista}
     WriteRegStr HKLM "Software\Clients\Media\VLC\Capabilities\FileAssociations" "$R0" "VLC$R0"
   ${EndIf}
+
+  ; Retained MSI choices use .Document. Keep these legacy identifiers resolvable
+  ; so the backend can safely back them up, without changing UserChoice or the
+  ; native NSIS capability above. Completion remains owned by the verified worker.
+  Push $0
+  !insertmacro MsiCompatibilityExtension $R0 $0
+  ${If} $0 == 1
+    WriteRegStr HKLM "Software\Classes\VLC$R0.Document" "" "$R2 $R1 File (VLC)"
+    WriteRegStr HKLM "Software\Classes\VLC$R0.Document\shell" "" "Open"
+    WriteRegStr HKLM "Software\Classes\VLC$R0.Document\shell\Open" "" "$(ShellAssociation_Play)"
+    WriteRegStr HKLM "Software\Classes\VLC$R0.Document\shell\Open" "MultiSelectModel" "Player"
+    WriteRegStr HKLM "Software\Classes\VLC$R0.Document\shell\Open\command" "" '"$INSTDIR\vlc.exe" --started-from-file "%1"'
+    WriteRegStr HKLM "Software\Classes\VLC$R0.Document\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
+  ${EndIf}
+  Pop $0
 FunctionEnd
 
 ;; Function that registers one skin extension for VLC
 Function RegisterSkinExtension
-  WriteRegStr HKCR "VLC$R0" "" "VLC skin file ($R0)"
-  WriteRegStr HKCR "VLC$R0\shell" "" "Open"
-  WriteRegStr HKCR "VLC$R0\shell\Open" "" ""
-  WriteRegStr HKCR "VLC$R0\shell\Open\command" "" '"$INSTDIR\vlc.exe" -Iskins --skins2-last "%1"'
-  WriteRegStr HKCR "VLC$R0\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
+  WriteRegStr HKLM "Software\Classes\VLC$R0" "" "VLC skin file ($R0)"
+  WriteRegStr HKLM "Software\Classes\VLC$R0\shell" "" "Open"
+  WriteRegStr HKLM "Software\Classes\VLC$R0\shell\Open" "" ""
+  WriteRegStr HKLM "Software\Classes\VLC$R0\shell\Open\command" "" '"$INSTDIR\vlc.exe" -Iskins --skins2-last "%1"'
+  WriteRegStr HKLM "Software\Classes\VLC$R0\DefaultIcon" "" '"$INSTDIR\vlc.exe",0'
 
   ${If} ${AtLeastWinVista}
     WriteRegStr HKLM "Software\Clients\Media\VLC\Capabilities\FileAssociations" "$R0" "VLC$R0"
@@ -56,19 +67,30 @@ FunctionEnd
 ;; Function that removes one extension that VLC owns.
 Function un.RegisterExtension
   ;start of restore script
-  ReadRegStr $1 HKCR "$R0" ""
+  ReadRegStr $1 HKLM "Software\Classes\$R0" ""
   StrCmp $1 "VLC$R0" 0 NoOwn ; only do this if we own it
     ; Read the old value from Backup
-    ReadRegStr $1 HKCR "$R0" "VLC.backup"
+    ReadRegStr $1 HKLM "Software\Classes\$R0" "VLC.backup"
     StrCmp $1 "" 0 Restore ; if backup="" then delete the whole key
-      DeleteRegKey HKCR "$R0"
+      DeleteRegKey HKLM "Software\Classes\$R0"
     Goto NoOwn
 Restore:
-      WriteRegStr HKCR "$R0" "" $1
-      DeleteRegValue HKCR "$R0" "VLC.backup"
+      WriteRegStr HKLM "Software\Classes\$R0" "" $1
+      DeleteRegValue HKLM "Software\Classes\$R0" "VLC.backup"
 NoOwn:
-    DeleteRegKey HKCR "VLC$R0" ;Delete key with association settings
+    DeleteRegKey HKLM "Software\Classes\VLC$R0" ;Delete key with association settings
     DeleteRegKey HKLM "Software\Clients\Media\VLC\Capabilities\FileAssociations\VLC$R0" ; for vista
+
+    Push $0
+    !insertmacro MsiCompatibilityExtension $R0 $0
+    ${If} $0 == 1
+      ; A later installation may have taken over the compatibility identifier.
+      ReadRegStr $1 HKLM "Software\Classes\VLC$R0.Document\shell\Open\command" ""
+      ${If} $1 == '"$INSTDIR\vlc.exe" --started-from-file "%1"'
+        DeleteRegKey HKLM "Software\Classes\VLC$R0.Document"
+      ${EndIf}
+    ${EndIf}
+    Pop $0
 FunctionEnd
 
 !macro AssociateExtensionSection TYPE EXT
@@ -76,7 +98,7 @@ FunctionEnd
     SectionIn 1 3
     Push $R0
     StrCpy $R0 ${EXT}
-    Call AssociateExtension
+    Call AppendAssociationExtension
     Pop $R0
   ${MementoSectionEnd}
 !macroend
@@ -86,7 +108,7 @@ FunctionEnd
     SectionIn 1 3
     Push $R0
     StrCpy $R0 ${EXT}
-    Call AssociateExtension
+    Call AppendAssociationExtension
     Pop $R0
   ${MementoSectionEnd}
 !macroend
@@ -96,7 +118,7 @@ FunctionEnd
     SectionIn 1 3
     Push $R0
     StrCpy $R0 ${EXT}
-    Call AssociateExtension
+    Call AppendAssociationExtension
     Pop $R0
   ${MementoSectionEnd}
 !macroend
@@ -291,15 +313,15 @@ FunctionEnd
 
 ; Generic function for adding the context menu for one ext.
 !macro AddContextMenuExt EXT
-  WriteRegStr HKCR ${EXT}\shell\PlayWithVLC "" "$(ContextMenuEntry_PlayWith)"
-  WriteRegStr HKCR ${EXT}\shell\PlayWithVLC "Icon" '"$INSTDIR\vlc.exe",0'
-  WriteRegStr HKCR ${EXT}\shell\PlayWithVLC "MultiSelectModel" "Player"
-  WriteRegStr HKCR ${EXT}\shell\PlayWithVLC\command "" '"$INSTDIR\vlc.exe" --started-from-file --no-playlist-enqueue "%1"'
+  WriteRegStr HKLM "Software\Classes\${EXT}\shell\PlayWithVLC" "" "$(ContextMenuEntry_PlayWith)"
+  WriteRegStr HKLM "Software\Classes\${EXT}\shell\PlayWithVLC" "Icon" '"$INSTDIR\vlc.exe",0'
+  WriteRegStr HKLM "Software\Classes\${EXT}\shell\PlayWithVLC" "MultiSelectModel" "Player"
+  WriteRegStr HKLM "Software\Classes\${EXT}\shell\PlayWithVLC\command" "" '"$INSTDIR\vlc.exe" --started-from-file --no-playlist-enqueue "%1"'
 
-  WriteRegStr HKCR ${EXT}\shell\AddToPlaylistVLC "" "$(ContextMenuEntry_AddToPlaylist)"
-  WriteRegStr HKCR ${EXT}\shell\AddToPlaylistVLC "Icon" '"$INSTDIR\vlc.exe",0'
-  WriteRegStr HKCR ${EXT}\shell\AddToPlaylistVLC "MultiSelectModel" "Player"
-  WriteRegStr HKCR ${EXT}\shell\AddToPlaylistVLC\command "" '"$INSTDIR\vlc.exe" --started-from-file --playlist-enqueue "%1"'
+  WriteRegStr HKLM "Software\Classes\${EXT}\shell\AddToPlaylistVLC" "" "$(ContextMenuEntry_AddToPlaylist)"
+  WriteRegStr HKLM "Software\Classes\${EXT}\shell\AddToPlaylistVLC" "Icon" '"$INSTDIR\vlc.exe",0'
+  WriteRegStr HKLM "Software\Classes\${EXT}\shell\AddToPlaylistVLC" "MultiSelectModel" "Player"
+  WriteRegStr HKLM "Software\Classes\${EXT}\shell\AddToPlaylistVLC\command" "" '"$INSTDIR\vlc.exe" --started-from-file --playlist-enqueue "%1"'
 !macroend
 
 !macro AddContextMenu TYPE EXT
@@ -307,8 +329,8 @@ FunctionEnd
 !macroend
 
 !macro DeleteContextMenuExt EXT
-  DeleteRegKey HKCR ${EXT}\shell\PlayWithVLC
-  DeleteRegKey HKCR ${EXT}\shell\AddToPlaylistVLC
+  DeleteRegKey HKLM "Software\Classes\${EXT}\shell\PlayWithVLC"
+  DeleteRegKey HKLM "Software\Classes\${EXT}\shell\AddToPlaylistVLC"
 !macroend
 
 !macro DeleteContextMenu TYPE EXT

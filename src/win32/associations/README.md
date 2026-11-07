@@ -24,3 +24,15 @@ The batch exposes a typed stop reason (`none` or `writerBusy`) and skipped count
 Skipped extensions remain in the failure list so existing Qt presentation and
 retry selection stay unchanged. A busy final extension can have zero skipped
 entries. Completed transactions are not rolled back when a later item fails.
+
+The Windows executable's early command is documented in bin/win32_associations.md.
+It checks the complete payload and current desktop identity before calling this
+library. Elevated callers broker one independently verified desktop-user worker,
+including different-administrator UAC elevation; that handoff is outside this
+library. The worker's current token owns all defaults and completion history.
+
+Installer-only batches recover existing journals for the requested extensions
+under the same writer lock before consulting persistent completion history.
+Historical success still skips all new default requests. Recovery preserves
+later user choices through the normal ownership/snapshot checks; a failed
+cleanup retains its journal and does not report an already-completed operation.

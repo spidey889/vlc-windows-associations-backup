@@ -54,6 +54,17 @@ nsProcess = shared_library('nsProcess',
                            install: true,
                            install_dir: 'NSIS')
 
+# Derive compatibility from the authored MSI handlers and NSIS registrations.
+nsis_python = find_program('python3')
+nsis_msi_compat = configure_file(
+  input: ['../msi/extensions.wxs', 'helpers/extensions.nsh'],
+  output: 'msi-compat.nsh',
+  command: [nsis_python, files('../msi/msi-associations.py'), '@INPUT0@', '@OUTPUT@',
+            '--nsis-extensions', '@INPUT1@'],
+  install: true,
+  install_dir: 'helpers',
+)
+
 vlc_nsi = configure_file(
   input: 'vlc.win32.nsi.in',
   output: 'vlc.win32.nsi',
