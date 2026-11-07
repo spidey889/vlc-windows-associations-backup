@@ -21,7 +21,7 @@ for empty selection and prevent its own argument truncation.
 
 ## Installer success history
 
-NSIS uses the exclusive `-once` form. After the ordinary-user context is
+NSIS and MSI use the exclusive `-once` form. After the ordinary-user context is
 verified, the worker holds the existing per-user writer mutex across the history
 check, selected batch, final read-only verification and completion write. Nested
 extension transactions take the same recursive Windows mutex on this thread.
@@ -41,11 +41,20 @@ records fail closed. Partial, busy, rejected or unverified work leaves no succes
 Completion write/flush errors are nonfatal command failures, with a failed flush
 removing the new value on a best-effort basis. There is no automatic retry.
 
-The worker may persist verified success after the NSIS broker stops waiting.
-Such success is based on the worker's own completed verification, not the parent's
+MSI does not wait for or record the async worker's result. The worker may persist
+verified success after MSI closes, or after the NSIS broker stops waiting. Such
+success is based on the worker's own completed verification, not the parent's
 unconfirmed status. An interrupted worker leaves the existing per-extension
 journals for a later explicit attempt. A crash before recording completion can
 leave verified defaults but no history; a later installer may try again.
+
+MSI also registers the NSIS-style `VLC.ext` identifiers alongside its own
+`VLC.ext.Document` identifiers. The generated compatibility components follow
+the existing Audio/Video/Others features and reuse their names, icons and open
+commands. This restores the registrations removed by the NSIS uninstaller,
+keeping an existing Windows choice usable without another defaults operation.
+It runs as normal MSI registration, independently of `Completed`; neither
+UserChoice nor completion history is changed by these compatibility components.
 
 ## User context and handoff
 
@@ -149,7 +158,7 @@ Windows API references:
 [WaitForSingleObject](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject),
 [process termination and child lifetime](https://learn.microsoft.com/en-us/windows/win32/procthread/terminating-a-process).
 
-The user reports the previous NSIS package passed real Windows testing.
+The user reports the previous NSIS and MSI packages passed real Windows testing.
 The new first-success path has focused mocked token/launch/wait responses and
 disposable-registry verification. It still needs new installed-package acceptance.
 Different-administrator UAC handoff has deterministic token/launch regressions,

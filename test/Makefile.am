@@ -697,3 +697,6 @@ endif
 
 # Manual NSIS fixture: mocked writes/processes; compiled with host makensis.
 EXTRA_DIST += src/win32/association_installer.py src/win32/association_installer.nsi
+
+# Opt-in native MSI fixture: WiX 3, MinGW and Windows; no installation.
+EXTRA_DIST += src/win32/association_msi.py src/win32/association_msi.ps1 src/win32/association_msi.c

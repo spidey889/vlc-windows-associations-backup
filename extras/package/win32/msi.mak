@@ -34,7 +34,12 @@ if BUILD_SKINS
 	$(HEAT) --dir $(VLCDIR)/skins -cg CompSkinsGroup -gg -scom -sreg -sfrag -dr APPLICATIONFOLDER -out $(MSIBUILDDIR)/Skins.fragment.wxs
 endif
 
-candle: heat
+$(MSIBUILDDIR)/associations.wxi: $(MSIDIR)/extensions.wxs $(MSIDIR)/msi-associations.py
+	python3 $(MSIDIR)/msi-associations.py $< $@
+
+package-win32-release: $(MSIBUILDDIR)/associations.wxi
+
+candle: heat $(MSIBUILDDIR)/associations.wxi
 	$(am__cd) $(MSIBUILDDIR) && $(CANDLE) -arch $(WINDOWS_ARCH) -I$(W_TOPBUILDDIR) -ext WiXUtilExtension $(W_MSIDIR)/product.wxs $(W_MSIDIR)/extensions.wxs $(W_MSIBUILDDIR)/*.fragment.wxs
 
 $(MSIOUTFILE): candle
@@ -44,6 +49,7 @@ $(MSIOUTFILE): candle
 package-msi: $(MSIOUTFILE)
 
 cleanmsi:
+	-rm -f $(MSIBUILDDIR)/associations.wxi
 	-rm -f $(MSIBUILDDIR)/*.wixobj
 	-rm -f $(MSIBUILDDIR)/*.wixpdb
 	-rm -f $(MSIBUILDDIR)/*.fragment.wxs

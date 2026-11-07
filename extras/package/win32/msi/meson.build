@@ -45,6 +45,13 @@ vlc_wix = configure_file(
     install_dir: '.',
 )
 
+# The batch inventory follows the registered groups; no second extension list.
+association_events = configure_file(
+    input: 'extensions.wxs',
+    output: 'associations.wxi',
+    command: [python3, files('msi-associations.py'), '@INPUT@', '@OUTPUT@'],
+)
+
 heat_dirs = ['Plugins']
 if wix_conf.get('ENABLE_NLS', 0) == 1
     heat_dirs += 'Locale'
@@ -94,7 +101,7 @@ foreach wxsobj : wxs_files
         ],
         output: outname,
         input: wxsobj[0],
-        depend_files: [vlc_wix],
+        depend_files: [vlc_wix, association_events],
         build_always_stale: true,
         build_by_default: false,
         console: true,
